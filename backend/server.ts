@@ -55,6 +55,25 @@ app.get('/api/health', (req: any, res: any) => {
   });
 });
 
+// Cloudinary config check endpoint (for debugging)
+app.get('/api/cloudinary-check', (req: any, res: any) => {
+  const cloudinary = require('cloudinary').v2;
+  
+  res.json({
+    success: true,
+    config: {
+      cloud_name: cloudinary.config().cloud_name,
+      api_key: cloudinary.config().api_key,
+      api_secret: cloudinary.config().api_secret ? '***configured***' : 'NOT SET',
+      env_loaded: {
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'not set',
+        api_key: process.env.CLOUDINARY_API_KEY || 'not set',
+        api_secret: process.env.CLOUDINARY_API_SECRET ? '***configured***' : 'not set'
+      }
+    }
+  });
+});
+
 // Routes
 const papersRouter = require('./routes/papers');
 const quizzesRouter = require('./routes/quizzes');
