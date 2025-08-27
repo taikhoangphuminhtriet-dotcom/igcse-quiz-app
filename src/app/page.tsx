@@ -1,103 +1,163 @@
-import Image from "next/image";
+'use client';
+
+import Link from 'next/link';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Home() {
+  const { user } = useAuth();
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
+    <div className="max-w-7xl mx-auto">
+      {/* Hero Section */}
+      <div className="text-center py-16">
+        <h1 className="text-5xl font-bold text-gray-900 mb-6">
+          AI-Powered IGCSE Quiz App
+        </h1>
+        <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
+          Transform your IGCSE preparation with AI-generated quizzes from past papers.
+          Upload PDFs, take interactive quizzes, and track your progress on the leaderboard.
+        </p>
+
+        {user ? (
+          <div className="space-x-4">
+            <Link
+              href="/dashboard"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-lg text-lg font-semibold inline-block"
+            >
+              Go to Dashboard
+            </Link>
+            <Link
+              href="/quizzes"
+              className="bg-white hover:bg-gray-50 text-indigo-600 border border-indigo-600 px-8 py-3 rounded-lg text-lg font-semibold inline-block"
+            >
+              Browse Quizzes
+            </Link>
+          </div>
+        ) : (
+          <div className="space-x-4">
+            <Link
+              href="/auth"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-lg text-lg font-semibold inline-block"
+            >
+              Get Started
+            </Link>
+            <Link
+              href="/auth"
+              className="bg-white hover:bg-gray-50 text-indigo-600 border border-indigo-600 px-8 py-3 rounded-lg text-lg font-semibold inline-block"
+            >
+              Sign In
+            </Link>
+          </div>
+        )}
+      </div>
+
+      {/* Features Section */}
+      <div className="py-16 bg-white rounded-lg shadow-sm">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">
+            Powerful Features for IGCSE Success
+          </h2>
+          <p className="text-gray-600 max-w-2xl mx-auto">
+            Our AI-powered platform makes studying for IGCSE exams more efficient and engaging than ever before.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-8 px-8">
+          <div className="text-center">
+            <div className="bg-indigo-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">AI PDF Parsing</h3>
+            <p className="text-gray-600">
+              Upload past papers and mark schemes. Our AI automatically extracts and structures questions for interactive quizzes.
+            </p>
+          </div>
+
+          <div className="text-center">
+            <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Interactive Quizzes</h3>
+            <p className="text-gray-600">
+              Take quizzes with multiple choice, short answer, and essay questions. Get instant feedback and explanations.
+            </p>
+          </div>
+
+          <div className="text-center">
+            <div className="bg-yellow-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Performance Tracking</h3>
+            <p className="text-gray-600">
+              Track your progress across subjects and compete with others on the leaderboard. See your improvement over time.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* How it Works Section */}
+      <div className="py-16">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">
+            How It Works
+          </h2>
+          <p className="text-gray-600 max-w-2xl mx-auto">
+            Simple steps to get started with AI-powered IGCSE quiz preparation.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-8">
+          <div className="bg-blue-50 p-6 rounded-lg">
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">For Students</h3>
+            <ol className="space-y-3">
+              <li className="flex items-start">
+                <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm font-semibold mr-3 mt-0.5">1</span>
+                <span>Create your account and sign in</span>
+              </li>
+              <li className="flex items-start">
+                <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm font-semibold mr-3 mt-0.5">2</span>
+                <span>Browse available quizzes by subject</span>
+              </li>
+              <li className="flex items-start">
+                <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm font-semibold mr-3 mt-0.5">3</span>
+                <span>Take interactive quizzes and get instant feedback</span>
           </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
+              <li className="flex items-start">
+                <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm font-semibold mr-3 mt-0.5">4</span>
+                <span>Track your progress and compete on leaderboards</span>
           </li>
         </ol>
+          </div>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+          <div className="bg-purple-50 p-6 rounded-lg">
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">For Developers</h3>
+            <ol className="space-y-3">
+              <li className="flex items-start">
+                <span className="bg-purple-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm font-semibold mr-3 mt-0.5">1</span>
+                <span>Create a developer account</span>
+              </li>
+              <li className="flex items-start">
+                <span className="bg-purple-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm font-semibold mr-3 mt-0.5">2</span>
+                <span>Upload IGCSE past papers and mark schemes (PDF)</span>
+              </li>
+              <li className="flex items-start">
+                <span className="bg-purple-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm font-semibold mr-3 mt-0.5">3</span>
+                <span>AI automatically parses and structures questions</span>
+              </li>
+              <li className="flex items-start">
+                <span className="bg-purple-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm font-semibold mr-3 mt-0.5">4</span>
+                <span>Quizzes are instantly available for students</span>
+              </li>
+            </ol>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </div>
     </div>
   );
 }
