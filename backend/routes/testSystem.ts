@@ -152,7 +152,9 @@ router.get('/test-session/:testSessionId', verifyToken, async (req: any, res: an
 
         // Calculate remaining time
         const now = new Date();
-        const elapsed = Math.floor((now.getTime() - testSession.startTime.getTime()) / 1000);
+        // Convert Firestore Timestamp to Date if needed
+        const startTime = testSession.startTime instanceof Date ? testSession.startTime : (testSession.startTime as any).toDate();
+        const elapsed = Math.floor((now.getTime() - startTime.getTime()) / 1000);
         const remaining = Math.max(0, testSession.timeLimit - elapsed);
 
         res.json({
