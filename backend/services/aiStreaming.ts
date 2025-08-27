@@ -2,7 +2,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { adminDb } = require('../../src/lib/firebase-admin');
 
 interface StreamingUpdate {
-    type: 'status' | 'progress' | 'question' | 'complete' | 'error';
+    type: 'status' | 'progress' | 'question' | 'complete' | 'error' | 'streaming';
     data: any;
     timestamp: Date;
 }
