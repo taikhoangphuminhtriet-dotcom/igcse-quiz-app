@@ -370,13 +370,17 @@ export default function DraftPage() {
                             <input
                                 type="number"
                                 value={draft?.metadata?.timeLimit ? draft.metadata.timeLimit / 60 : 60}
-                                onChange={(e) => setDraft(draft ? {
-                                    ...draft,
-                                    metadata: {
-                                        ...draft.metadata,
-                                        timeLimit: parseInt(e.target.value) * 60
-                                    }
-                                } : null)}
+                                onChange={(e) => {
+                                    const value = parseInt(e.target.value);
+                                    const minutes = isNaN(value) ? 60 : value;
+                                    setDraft(draft ? {
+                                        ...draft,
+                                        metadata: {
+                                            ...draft.metadata,
+                                            timeLimit: minutes * 60
+                                        }
+                                    } : null);
+                                }}
                                 disabled={draft?.status === 'published'}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100"
                             />
@@ -448,7 +452,10 @@ export default function DraftPage() {
                                             <input
                                                 type="number"
                                                 value={question.marks}
-                                                onChange={(e) => updateQuestion(index, { marks: parseInt(e.target.value) })}
+                                                onChange={(e) => {
+                                                    const value = parseInt(e.target.value);
+                                                    updateQuestion(index, { marks: isNaN(value) ? 1 : value });
+                                                }}
                                                 className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                                 placeholder="Marks"
                                             />

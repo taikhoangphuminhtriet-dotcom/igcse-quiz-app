@@ -280,7 +280,39 @@ export default function TestPage() {
         );
     }
 
+    if (!testSession.quiz || !testSession.quiz.questions) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <div className="text-center">
+                    <p className="text-red-600 mb-4">Invalid test session data</p>
+                    <button
+                        onClick={() => router.push('/quizzes')}
+                        className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700"
+                    >
+                        Browse Quizzes
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     const currentQ = testSession.quiz.questions[currentQuestion];
+
+    if (!currentQ) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <div className="text-center">
+                    <p className="text-red-600 mb-4">Question not found</p>
+                    <button
+                        onClick={() => router.push('/quizzes')}
+                        className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700"
+                    >
+                        Browse Quizzes
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-gray-50">
