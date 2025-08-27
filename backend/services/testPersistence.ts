@@ -19,7 +19,22 @@ class TestPersistenceService {
             // Check if user already has an active test for this quiz
             const existingTest = await this.getActiveTest(userId, quizId);
             if (existingTest) {
-                throw new Error('You already have an active test session for this quiz');
+                // Check if the test has expired
+                const now = new Date();
+                const startTime = existingTest.startTime instanceof Date 
+                    ? existingTest.startTime 
+                    : (existingTest.startTime as any).toDate();
+                const elapsed = Math.floor((now.getTime() - startTime.getTime()) / 1000);
+                
+                if (elapsed < timeLimit) {
+                    throw new Error('You already have an active test session for this quiz');
+                } else {
+                    // Mark the old test as expired before starting a new one
+                    await adminDb.collection('active_tests').doc(existingTest.id).update({
+                        status: 'expired',
+                        expiredAt: now
+                    });
+                }
             }
 
             const testSessionId = `${userId}_${quizId}_${Date.now()}`;
@@ -65,7 +80,17 @@ class TestPersistenceService {
             if (snapshot.empty) return null;
 
             const doc = snapshot.docs[0];
-            return { ...doc.data(), id: doc.id } as ActiveTest & { id: string };
+            const data = doc.data();
+            
+            // Convert Firestore Timestamp to Date if needed
+            if (data.startTime && typeof data.startTime.toDate === 'function') {
+                data.startTime = data.startTime.toDate();
+            }
+            if (data.lastActivity && typeof data.lastActivity.toDate === 'function') {
+                data.lastActivity = data.lastActivity.toDate();
+            }
+            
+            return { ...data, id: doc.id } as ActiveTest & { id: string };
 
         } catch (error) {
             console.error('❌ Error getting active test:', error);

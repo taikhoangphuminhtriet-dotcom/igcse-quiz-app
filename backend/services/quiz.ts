@@ -18,7 +18,8 @@ class QuizService {
 
     static async getQuizzes(subject?: string): Promise<any[]> {
         try {
-            let query = adminDb.collection('quizzes');
+            let query = adminDb.collection('quizzes')
+                .where('status', '==', 'published'); // Only show published quizzes
 
             if (subject) {
                 query = query.where('subject', '==', subject);

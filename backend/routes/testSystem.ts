@@ -29,7 +29,11 @@ router.post('/start-test/:quizId', verifyToken, async (req: any, res: any) => {
         if (existingTest) {
             // Calculate remaining time
             const now = new Date();
-            const elapsed = Math.floor((now.getTime() - existingTest.startTime.getTime()) / 1000);
+            // Convert Firestore Timestamp to Date if needed
+            const startTime = existingTest.startTime instanceof Date 
+                ? existingTest.startTime 
+                : (existingTest.startTime as any).toDate();
+            const elapsed = Math.floor((now.getTime() - startTime.getTime()) / 1000);
             const remaining = Math.max(0, timeLimit - elapsed);
 
             if (remaining > 0) {

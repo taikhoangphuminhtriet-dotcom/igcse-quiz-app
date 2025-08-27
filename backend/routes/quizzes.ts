@@ -24,11 +24,25 @@ router.get('/', async (req: any, res: any) => {
     }
 });
 
-// GET /api/quizzes/:id - Get specific quiz
-router.get('/:id', async (req: any, res: any) => {
+// GET /api/quizzes/:subject - Get quizzes by subject (must be before /:id)
+router.get('/:subject', async (req: any, res: any) => {
     try {
-        const { id } = req.params;
-        const quiz = await QuizService.getQuizById(id);
+        const { subject } = req.params;
+        
+        // Check if this is a valid subject or a quiz ID
+        const validSubjects = ['Math', 'English', 'Science', 'History', 'Geography'];
+        
+        if (validSubjects.includes(subject)) {
+            // This is a subject filter
+            const quizzes = await QuizService.getQuizzes(subject);
+            return res.json({
+                success: true,
+                data: quizzes
+            });
+        }
+        
+        // Otherwise, treat it as a quiz ID
+        const quiz = await QuizService.getQuizById(subject);
 
         if (!quiz) {
             return res.status(404).json({

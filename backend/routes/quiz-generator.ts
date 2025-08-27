@@ -330,6 +330,44 @@ router.post('/publish-quiz/:quizId',
     }
 );
 
+// Get all quizzes for developers (including drafts)
+router.get('/all-quizzes',
+    verifyToken,
+    requireDeveloperOrOwner,
+    async (req, res) => {
+        try {
+            const { status } = req.query;
+            let query = adminDb.collection('quizzes');
+            
+            if (status) {
+                query = query.where('status', '==', status);
+            }
+            
+            const snapshot = await query
+                .orderBy('createdAt', 'desc')
+                .limit(100)
+                .get();
+
+            const quizzes = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+
+            res.json({
+                success: true,
+                data: quizzes
+            });
+
+        } catch (error) {
+            console.error('❌ Get all quizzes error:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to fetch quizzes'
+            });
+        }
+    }
+);
+
 // Get owner's drafts
 router.get('/drafts',
     verifyToken,
