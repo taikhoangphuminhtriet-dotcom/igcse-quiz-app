@@ -224,7 +224,8 @@ export default function QuizCreatorPage() {
                                     break;
                                 case 'success':
                                     setSuccess(`Successfully generated quiz with ${data.data.questionCount} questions!`);
-                                    setStep('review');
+                                    // Redirect to draft page
+                                    router.push(`/draft/${data.data.quizId}`);
                                     break;
                             }
                         } catch (e) {
@@ -299,8 +300,13 @@ export default function QuizCreatorPage() {
 
             if (result.success) {
                 setGeneratedQuiz(result.data);
-                setStep('review');
                 setSuccess(`Successfully generated quiz with ${result.data.questions.length} questions!`);
+                // Redirect to draft page
+                if (result.data.quizId) {
+                    router.push(`/draft/${result.data.quizId}`);
+                } else {
+                    setStep('review');
+                }
             } else {
                 setError(result.error || 'Failed to generate quiz');
             }
