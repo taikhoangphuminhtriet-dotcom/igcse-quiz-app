@@ -107,7 +107,9 @@ class TestPersistenceService {
 
             const testData = testDoc.data() as ActiveTest;
             const completionTime = new Date();
-            const timeSpent = Math.floor((completionTime.getTime() - testData.startTime.getTime()) / 1000);
+            // Convert Firestore Timestamp to Date if needed
+            const startTime = testData.startTime instanceof Date ? testData.startTime : (testData.startTime as any).toDate();
+            const timeSpent = Math.floor((completionTime.getTime() - startTime.getTime()) / 1000);
             const timerExpired = timeSpent >= testData.timeLimit;
 
             // Update test status
