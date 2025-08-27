@@ -164,9 +164,11 @@ class XPService {
 
     static async isFirstAttempt(userId: string, quizId: string): Promise<boolean> {
         try {
+            // Only count completed tests (not abandoned/expired) as attempts
             const historySnapshot = await adminDb.collection('test_history')
                 .where('userId', '==', userId)
                 .where('quizId', '==', quizId)
+                .where('status', 'in', ['pass', 'fail'])
                 .limit(1)
                 .get();
 

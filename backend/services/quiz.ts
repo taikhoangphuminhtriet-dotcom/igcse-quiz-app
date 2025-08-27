@@ -20,19 +20,28 @@ class QuizService {
         try {
             let query = adminDb.collection('quizzes');
 
+            // Build query based on filters
             if (subject) {
                 query = query.where('subject', '==', subject);
             }
 
+            // First get all documents, then filter by status in memory
+            // This avoids the compound index requirement temporarily
             const snapshot = await query
                 .orderBy('createdAt', 'desc')
-                .limit(50) // Limit for better performance
+                .limit(100) // Get more initially since we'll filter
                 .get();
-
-            return snapshot.docs.map((doc: any) => ({
+            
+            // Filter for published quizzes in memory
+            const allQuizzes = snapshot.docs.map((doc: any) => ({
                 id: doc.id,
                 ...doc.data()
             }));
+            
+            // Return only published quizzes (or all if status doesn't exist for backward compatibility)
+            return allQuizzes.filter(quiz => 
+                !quiz.status || quiz.status === 'published'
+            ).slice(0, 50); // Limit to 50 after filtering
         } catch (error) {
             console.error('Get quizzes error:', error);
             throw new Error('Failed to fetch quizzes');

@@ -11,6 +11,10 @@ interface ActiveTest {
     lastActivity: Date;
 }
 
+interface ActiveTestWithId extends ActiveTest {
+    id: string;
+}
+
 class TestPersistenceService {
     static async startTest(userId: string, quizId: string, timeLimit: number): Promise<string> {
         try {
@@ -19,7 +23,22 @@ class TestPersistenceService {
             // Check if user already has an active test for this quiz
             const existingTest = await this.getActiveTest(userId, quizId);
             if (existingTest) {
-                throw new Error('You already have an active test session for this quiz');
+                // Check if the test has expired
+                const now = new Date();
+                const startTime = existingTest.startTime instanceof Date 
+                    ? existingTest.startTime 
+                    : (existingTest.startTime as any).toDate();
+                const elapsed = Math.floor((now.getTime() - startTime.getTime()) / 1000);
+                
+                if (elapsed < timeLimit) {
+                    throw new Error('You already have an active test session for this quiz');
+                } else {
+                    // Mark the old test as expired before starting a new one
+                    await adminDb.collection('active_tests').doc(existingTest.id).update({
+                        status: 'expired',
+                        expiredAt: now
+                    });
+                }
             }
 
             const testSessionId = `${userId}_${quizId}_${Date.now()}`;
@@ -53,7 +72,7 @@ class TestPersistenceService {
         }
     }
 
-    static async getActiveTest(userId: string, quizId: string): Promise<ActiveTest | null> {
+    static async getActiveTest(userId: string, quizId: string): Promise<ActiveTestWithId | null> {
         try {
             const snapshot = await adminDb.collection('active_tests')
                 .where('userId', '==', userId)
@@ -65,7 +84,17 @@ class TestPersistenceService {
             if (snapshot.empty) return null;
 
             const doc = snapshot.docs[0];
-            return { ...doc.data(), id: doc.id } as ActiveTest & { id: string };
+            const data = doc.data();
+            
+            // Convert Firestore Timestamp to Date if needed
+            if (data.startTime && typeof data.startTime.toDate === 'function') {
+                data.startTime = data.startTime.toDate();
+            }
+            if (data.lastActivity && typeof data.lastActivity.toDate === 'function') {
+                data.lastActivity = data.lastActivity.toDate();
+            }
+            
+            return { ...data, id: doc.id } as ActiveTestWithId;
 
         } catch (error) {
             console.error('❌ Error getting active test:', error);
@@ -266,12 +295,12 @@ class TestPersistenceService {
         }
     }
 
-    static async getTestSession(testSessionId: string): Promise<ActiveTest | null> {
+    static async getTestSession(testSessionId: string): Promise<ActiveTestWithId | null> {
         try {
             const testDoc = await adminDb.collection('active_tests').doc(testSessionId).get();
             if (!testDoc.exists) return null;
 
-            return { ...testDoc.data(), id: testSessionId } as ActiveTest & { id: string };
+            return { ...testDoc.data(), id: testSessionId } as ActiveTestWithId;
 
         } catch (error) {
             console.error('❌ Error getting test session:', error);
@@ -279,7 +308,7 @@ class TestPersistenceService {
         }
     }
 
-    static async getAllActiveTests(): Promise<ActiveTest[]> {
+    static async getAllActiveTests(): Promise<ActiveTestWithId[]> {
         try {
             const snapshot = await adminDb.collection('active_tests')
                 .where('status', '==', 'active')
@@ -288,7 +317,7 @@ class TestPersistenceService {
             return snapshot.docs.map((doc: any) => ({
                 id: doc.id,
                 ...doc.data()
-            }));
+            })) as ActiveTestWithId[];
 
         } catch (error) {
             console.error('❌ Error getting active tests:', error);

@@ -35,6 +35,31 @@ export default function QuizzesPage() {
         }
     }, [user, selectedSubject]);
 
+    const startTest = async (quizId: string) => {
+        try {
+            const token = await user?.getIdToken?.();
+            const response = await fetch(`http://localhost:3001/api/start-test/${quizId}`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                // Redirect to the test session route
+                router.push(`/test/${result.data.testSessionId}`);
+            } else {
+                alert(result.error || 'Failed to start test');
+            }
+        } catch (error) {
+            console.error('Error starting test:', error);
+            alert('Failed to start test. Please try again.');
+        }
+    };
+
     const fetchQuizzes = async () => {
         setLoadingQuizzes(true);
         try {
@@ -152,12 +177,12 @@ export default function QuizzesPage() {
                                         )}
                                     </div>
 
-                                    <Link
-                                        href={`/quiz/${quiz.id}`}
+                                    <button
+                                        onClick={() => startTest(quiz.id)}
                                         className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
                                     >
                                         {user.completedQuizzes?.includes(quiz.id) ? 'Retake' : 'Start Quiz'}
-                                    </Link>
+                                    </button>
                                 </div>
                             </div>
                         </div>

@@ -77,6 +77,12 @@ export default function QuizCreatorPage() {
     const [generatedQuiz, setGeneratedQuiz] = useState<GeneratedQuiz | null>(null);
     const [editingQuestion, setEditingQuestion] = useState<number | null>(null);
     const [showAllQuestions, setShowAllQuestions] = useState(false);
+    const [streamingStatus, setStreamingStatus] = useState('');
+    const [streamingProgress, setStreamingProgress] = useState(0);
+    const [streamingQuestions, setStreamingQuestions] = useState<any[]>([]);
+    const [useStreaming, setUseStreaming] = useState(true);
+    const [streamingText, setStreamingText] = useState('');
+    const [showStreamingJSON, setShowStreamingJSON] = useState(true);
 
     const subjects = ['Math', 'English', 'Science', 'Physics', 'Chemistry', 'Biology', 'History', 'Geography'];
     const examBoards = ['Cambridge IGCSE', 'Edexcel IGCSE', 'AQA GCSE', 'OCR GCSE'];
@@ -128,7 +134,137 @@ export default function QuizCreatorPage() {
         });
     };
 
+    const generateQuizWithStreaming = async () => {
+        if (!files.insert || !files.questions || !files.markscheme) {
+            setError('All 3 PDFs are required: Insert Sheet, Questions Paper, and Mark Scheme');
+            return;
+        }
+
+        setProcessing(true);
+        setError('');
+        setSuccess('');
+        setStreamingStatus('Connecting...');
+        setStreamingProgress(0);
+        setStreamingQuestions([]);
+        setStreamingText('');
+
+        try {
+            const formData = new FormData();
+            
+            // Add files
+            formData.append('insert', files.insert.file);
+            formData.append('questions', files.questions.file);
+            formData.append('markscheme', files.markscheme.file);
+
+            // Add metadata
+            Object.entries(uploadData).forEach(([key, value]) => {
+                formData.append(key, value);
+            });
+
+            const token = await user?.getIdToken?.();
+            
+            // Use EventSource for SSE
+            const response = await fetch('http://localhost:3001/api/generate-quiz-streaming', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: formData,
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to start streaming');
+            }
+
+            const reader = response.body?.getReader();
+            const decoder = new TextDecoder();
+
+            if (!reader) {
+                throw new Error('No response body');
+            }
+
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.slice(6));
+                            
+                            switch (data.type) {
+                                case 'status':
+                                    setStreamingStatus(data.data);
+                                    break;
+                                case 'progress':
+                                    setStreamingProgress(data.data);
+                                    break;
+                                case 'streaming':
+                                    // Update the streaming text with the AI output
+                                    setStreamingText(data.data.text);
+                                    break;
+                                case 'question':
+                                    setStreamingQuestions(prev => [...prev, data.data.question]);
+                                    setStreamingStatus(`Generated question ${data.data.questionNumber}`);
+                                    break;
+                                case 'complete':
+                                    setStreamingStatus('Quiz generation complete!');
+                                    setStreamingProgress(100);
+                                    // Fetch the complete quiz
+                                    await fetchGeneratedQuiz(data.data.quizId);
+                                    break;
+                                case 'error':
+                                    setError(data.data);
+                                    break;
+                                case 'success':
+                                    setSuccess(`Successfully generated quiz with ${data.data.questionCount} questions!`);
+                                    // Redirect to draft page
+                                    router.push(`/draft/${data.data.quizId}`);
+                                    break;
+                            }
+                        } catch (e) {
+                            console.error('Error parsing SSE data:', e);
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Streaming generation error:', error);
+            setError('Failed to generate quiz. Please try again.');
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    const fetchGeneratedQuiz = async (quizId: string) => {
+        try {
+            const token = await user?.getIdToken?.();
+            const response = await fetch(`http://localhost:3001/api/quiz/${quizId}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                }
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                setGeneratedQuiz(result.data);
+            }
+        } catch (error) {
+            console.error('Error fetching generated quiz:', error);
+        }
+    };
+
     const generateQuiz = async () => {
+        if (useStreaming) {
+            return generateQuizWithStreaming();
+        }
+
         if (!files.insert || !files.questions || !files.markscheme) {
             setError('All 3 PDFs are required: Insert Sheet, Questions Paper, and Mark Scheme');
             return;
@@ -164,8 +300,13 @@ export default function QuizCreatorPage() {
 
             if (result.success) {
                 setGeneratedQuiz(result.data);
-                setStep('review');
                 setSuccess(`Successfully generated quiz with ${result.data.questions.length} questions!`);
+                // Redirect to draft page
+                if (result.data.quizId) {
+                    router.push(`/draft/${result.data.quizId}`);
+                } else {
+                    setStep('review');
+                }
             } else {
                 setError(result.error || 'Failed to generate quiz');
             }
@@ -289,6 +430,35 @@ export default function QuizCreatorPage() {
         text = text.replace(/(\w+)%form-t%/g, '$1 (accept all tense forms)');
 
         return text;
+    };
+
+    // Format JSON for syntax highlighting
+    const formatJSON = (text: string): string => {
+        if (!text) return text;
+        
+        // If it starts with //, it's a comment
+        if (text.startsWith('//')) {
+            return `<span style="color: #6b7280">${text}</span>`;
+        }
+        
+        try {
+            // Try to format as JSON with syntax highlighting
+            return text
+                // Strings (green for keys, yellow for values)
+                .replace(/"([^"]+)":/g, '<span style="color: #34d399">"$1"</span>:')
+                .replace(/: "([^"]*)"/g, ': <span style="color: #fbbf24">"$1"</span>')
+                // Numbers (cyan)
+                .replace(/: (\d+)/g, ': <span style="color: #06b6d4">$1</span>')
+                // Booleans (purple)
+                .replace(/: (true|false)/g, ': <span style="color: #a78bfa">$1</span>')
+                // Null (red)
+                .replace(/: (null)/g, ': <span style="color: #f87171">$1</span>')
+                // Brackets and braces (white)
+                .replace(/([{}\[\]])/g, '<span style="color: #e5e7eb">$1</span>');
+        } catch {
+            // If parsing fails, return as-is with green color
+            return `<span style="color: #34d399">${text}</span>`;
+        }
     };
 
     const FileUploadCard = ({
@@ -588,6 +758,94 @@ export default function QuizCreatorPage() {
                             )}
                         </button>
                     </div>
+
+                    {/* Streaming toggle */}
+                    <div className="mt-4 flex justify-center">
+                        <label className="flex items-center cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={useStreaming}
+                                onChange={(e) => setUseStreaming(e.target.checked)}
+                                className="mr-2"
+                            />
+                            <span className="text-sm text-gray-600">
+                                Use real-time streaming (see AI progress)
+                            </span>
+                        </label>
+                    </div>
+
+                    {/* Streaming Progress */}
+                    {processing && useStreaming && (
+                        <div className="mt-6 space-y-4">
+                            {/* Progress Bar */}
+                            <div className="bg-gray-50 rounded-lg p-4">
+                                <div className="mb-2">
+                                    <div className="flex justify-between text-sm text-gray-600 mb-1">
+                                        <span>{streamingStatus}</span>
+                                        <span>{streamingProgress}%</span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-2">
+                                        <div
+                                            className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
+                                            style={{ width: `${streamingProgress}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Real-time JSON Output */}
+                            <div className="bg-gray-900 rounded-lg p-4">
+                                <div className="flex justify-between items-center mb-2">
+                                    <h4 className="text-sm font-medium text-green-400 font-mono">
+                                        AI Generating JSON...
+                                    </h4>
+                                    <button
+                                        onClick={() => setShowStreamingJSON(!showStreamingJSON)}
+                                        className="text-xs text-gray-400 hover:text-gray-200"
+                                    >
+                                        {showStreamingJSON ? 'Hide' : 'Show'} Output
+                                    </button>
+                                </div>
+                                
+                                {showStreamingJSON && (
+                                    <div className="relative">
+                                        <pre className="text-xs font-mono overflow-x-auto max-h-96 overflow-y-auto bg-black bg-opacity-50 p-3 rounded">
+                                            <code 
+                                                dangerouslySetInnerHTML={{ 
+                                                    __html: formatJSON(streamingText || '// Waiting for AI response...') 
+                                                }}
+                                            />
+                                        </pre>
+                                        {streamingText && (
+                                            <div className="absolute top-2 right-2">
+                                                <span className="inline-flex h-2 w-2">
+                                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Questions Summary */}
+                            {streamingQuestions.length > 0 && (
+                                <div className="bg-white rounded-lg shadow-sm p-4">
+                                    <h4 className="text-sm font-medium text-gray-700 mb-2">
+                                        Questions Extracted: {streamingQuestions.length}
+                                    </h4>
+                                    <div className="max-h-32 overflow-y-auto space-y-1">
+                                        {streamingQuestions.map((q, idx) => (
+                                            <div key={idx} className="text-xs text-gray-600 bg-gray-50 p-2 rounded flex items-start">
+                                                <span className="font-semibold text-indigo-600 mr-2">Q{idx + 1}:</span>
+                                                <span className="flex-1">{q.question?.substring(0, 80)}...</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             )}
 

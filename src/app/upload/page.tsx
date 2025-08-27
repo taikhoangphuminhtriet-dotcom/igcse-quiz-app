@@ -251,7 +251,10 @@ export default function ManualTestCreator() {
                                 <input
                                     type="number"
                                     value={testData.timeLimit}
-                                    onChange={(e) => handleTestDataChange('timeLimit', parseInt(e.target.value))}
+                                    onChange={(e) => {
+                                        const value = parseInt(e.target.value);
+                                        handleTestDataChange('timeLimit', isNaN(value) ? 60 : value);
+                                    }}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
                                     min="1"
                                 />
@@ -326,8 +329,11 @@ export default function ManualTestCreator() {
                                     </label>
                                     <input
                                         type="number"
-                                        value={currentQuestion.marks}
-                                        onChange={(e) => handleQuestionChange('marks', parseInt(e.target.value))}
+                                        value={currentQuestion.marks || 1}
+                                        onChange={(e) => {
+                                            const value = parseInt(e.target.value);
+                                            handleQuestionChange('marks', isNaN(value) ? 1 : value);
+                                        }}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
                                         min="1"
                                         max="20"

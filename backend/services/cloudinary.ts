@@ -4,25 +4,37 @@ const cloudinary = require('cloudinary').v2;
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dqswcn5u0',
     api_key: process.env.CLOUDINARY_API_KEY || '667675634458611',
-    api_secret: process.env.CLOUDINARY_API_SECRET || 'GIccFusJgpc-fI4wD6ImQ5sZ6R4t',
+    api_secret: process.env.CLOUDINARY_API_SECRET || 'GIccFusJgpc-fI4wD6ImQ5sZ6R4',
 });
 
 class CloudinaryService {
     static async uploadPDF(filePath: string, folder: string = 'quiz-pdfs'): Promise<string> {
         try {
             console.log(`📤 Uploading PDF to Cloudinary: ${filePath}`);
+            console.log(`   Folder: ${folder}`);
+            console.log(`   Cloud: ${cloudinary.config().cloud_name}`);
 
             const result = await cloudinary.uploader.upload(filePath, {
                 resource_type: 'raw', // For non-image files like PDFs
                 folder: folder,
                 use_filename: true,
                 unique_filename: true,
+                timeout: 60000, // 60 second timeout
             });
 
             console.log(`✅ PDF uploaded successfully: ${result.secure_url}`);
             return result.secure_url;
-        } catch (error) {
+        } catch (error: any) {
             console.error('❌ Error uploading PDF to Cloudinary:', error);
+            
+            // Log more details for debugging
+            if (error.http_code === 401) {
+                console.error('   Authentication failed. Check API credentials.');
+                console.error('   Cloud Name:', cloudinary.config().cloud_name);
+                console.error('   API Key:', cloudinary.config().api_key);
+                console.error('   API Secret:', cloudinary.config().api_secret ? '***hidden***' : 'NOT SET');
+            }
+            
             throw new Error(`Failed to upload PDF: ${error.message}`);
         }
     }
