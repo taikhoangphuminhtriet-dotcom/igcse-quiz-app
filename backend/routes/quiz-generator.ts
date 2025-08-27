@@ -281,7 +281,16 @@ router.post('/generate-quiz-streaming',
                 metadata,
                 (update) => {
                     // Send updates via SSE
-                    res.write(`data: ${JSON.stringify(update)}\n\n`);
+                    try {
+                        res.write(`data: ${JSON.stringify(update)}\n\n`);
+                        
+                        // Force flush the response to ensure real-time delivery
+                        if (res.flush) {
+                            res.flush();
+                        }
+                    } catch (err) {
+                        console.error('Error sending SSE update:', err);
+                    }
                 }
             );
 

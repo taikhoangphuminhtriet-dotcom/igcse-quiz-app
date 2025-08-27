@@ -98,11 +98,24 @@ class AIStreamingService {
             let fullText = '';
             let questionCount = 0;
             let lastProgressUpdate = 20;
+            let chunkCount = 0;
 
             // Process stream
             for await (const chunk of result.stream) {
                 const chunkText = chunk.text();
                 fullText += chunkText;
+                chunkCount++;
+
+                // Send the raw streaming text update
+                await sendUpdate({
+                    type: 'streaming',
+                    data: {
+                        text: fullText,
+                        chunk: chunkText,
+                        chunkNumber: chunkCount
+                    },
+                    timestamp: new Date()
+                });
 
                 // Try to parse questions as they come in
                 const questions = this.extractQuestionsFromPartialText(fullText);
@@ -119,13 +132,13 @@ class AIStreamingService {
                         timestamp: new Date()
                     });
 
-                    // Update progress
-                    const progress = Math.min(20 + (questionCount * 5), 80);
-                    if (progress > lastProgressUpdate) {
-                        lastProgressUpdate = progress;
+                    // Update progress based on estimated completion
+                    const estimatedProgress = Math.min(20 + (chunkCount * 2), 80);
+                    if (estimatedProgress > lastProgressUpdate) {
+                        lastProgressUpdate = estimatedProgress;
                         await sendUpdate({
                             type: 'progress',
-                            data: progress,
+                            data: estimatedProgress,
                             timestamp: new Date()
                         });
                     }
