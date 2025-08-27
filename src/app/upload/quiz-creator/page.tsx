@@ -77,6 +77,10 @@ export default function QuizCreatorPage() {
     const [generatedQuiz, setGeneratedQuiz] = useState<GeneratedQuiz | null>(null);
     const [editingQuestion, setEditingQuestion] = useState<number | null>(null);
     const [showAllQuestions, setShowAllQuestions] = useState(false);
+    const [streamingStatus, setStreamingStatus] = useState('');
+    const [streamingProgress, setStreamingProgress] = useState(0);
+    const [streamingQuestions, setStreamingQuestions] = useState<any[]>([]);
+    const [useStreaming, setUseStreaming] = useState(true);
 
     const subjects = ['Math', 'English', 'Science', 'Physics', 'Chemistry', 'Biology', 'History', 'Geography'];
     const examBoards = ['Cambridge IGCSE', 'Edexcel IGCSE', 'AQA GCSE', 'OCR GCSE'];
@@ -128,7 +132,131 @@ export default function QuizCreatorPage() {
         });
     };
 
+    const generateQuizWithStreaming = async () => {
+        if (!files.insert || !files.questions || !files.markscheme) {
+            setError('All 3 PDFs are required: Insert Sheet, Questions Paper, and Mark Scheme');
+            return;
+        }
+
+        setProcessing(true);
+        setError('');
+        setSuccess('');
+        setStreamingStatus('Connecting...');
+        setStreamingProgress(0);
+        setStreamingQuestions([]);
+
+        try {
+            const formData = new FormData();
+            
+            // Add files
+            formData.append('insert', files.insert.file);
+            formData.append('questions', files.questions.file);
+            formData.append('markscheme', files.markscheme.file);
+
+            // Add metadata
+            Object.entries(uploadData).forEach(([key, value]) => {
+                formData.append(key, value);
+            });
+
+            const token = await user?.getIdToken?.();
+            
+            // Use EventSource for SSE
+            const response = await fetch('http://localhost:3001/api/generate-quiz-streaming', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: formData,
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to start streaming');
+            }
+
+            const reader = response.body?.getReader();
+            const decoder = new TextDecoder();
+
+            if (!reader) {
+                throw new Error('No response body');
+            }
+
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.slice(6));
+                            
+                            switch (data.type) {
+                                case 'status':
+                                    setStreamingStatus(data.data);
+                                    break;
+                                case 'progress':
+                                    setStreamingProgress(data.data);
+                                    break;
+                                case 'question':
+                                    setStreamingQuestions(prev => [...prev, data.data.question]);
+                                    setStreamingStatus(`Generated question ${data.data.questionNumber}`);
+                                    break;
+                                case 'complete':
+                                    setStreamingStatus('Quiz generation complete!');
+                                    setStreamingProgress(100);
+                                    // Fetch the complete quiz
+                                    await fetchGeneratedQuiz(data.data.quizId);
+                                    break;
+                                case 'error':
+                                    setError(data.data);
+                                    break;
+                                case 'success':
+                                    setSuccess(`Successfully generated quiz with ${data.data.questionCount} questions!`);
+                                    setStep('review');
+                                    break;
+                            }
+                        } catch (e) {
+                            console.error('Error parsing SSE data:', e);
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Streaming generation error:', error);
+            setError('Failed to generate quiz. Please try again.');
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    const fetchGeneratedQuiz = async (quizId: string) => {
+        try {
+            const token = await user?.getIdToken?.();
+            const response = await fetch(`http://localhost:3001/api/quiz/${quizId}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                }
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                setGeneratedQuiz(result.data);
+            }
+        } catch (error) {
+            console.error('Error fetching generated quiz:', error);
+        }
+    };
+
     const generateQuiz = async () => {
+        if (useStreaming) {
+            return generateQuizWithStreaming();
+        }
+
         if (!files.insert || !files.questions || !files.markscheme) {
             setError('All 3 PDFs are required: Insert Sheet, Questions Paper, and Mark Scheme');
             return;
@@ -588,6 +716,54 @@ export default function QuizCreatorPage() {
                             )}
                         </button>
                     </div>
+
+                    {/* Streaming toggle */}
+                    <div className="mt-4 flex justify-center">
+                        <label className="flex items-center cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={useStreaming}
+                                onChange={(e) => setUseStreaming(e.target.checked)}
+                                className="mr-2"
+                            />
+                            <span className="text-sm text-gray-600">
+                                Use real-time streaming (see AI progress)
+                            </span>
+                        </label>
+                    </div>
+
+                    {/* Streaming Progress */}
+                    {processing && useStreaming && (
+                        <div className="mt-6 bg-gray-50 rounded-lg p-4">
+                            <div className="mb-2">
+                                <div className="flex justify-between text-sm text-gray-600 mb-1">
+                                    <span>{streamingStatus}</span>
+                                    <span>{streamingProgress}%</span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                    <div
+                                        className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
+                                        style={{ width: `${streamingProgress}%` }}
+                                    />
+                                </div>
+                            </div>
+
+                            {streamingQuestions.length > 0 && (
+                                <div className="mt-4">
+                                    <h4 className="text-sm font-medium text-gray-700 mb-2">
+                                        Questions Generated: {streamingQuestions.length}
+                                    </h4>
+                                    <div className="max-h-40 overflow-y-auto space-y-1">
+                                        {streamingQuestions.map((q, idx) => (
+                                            <div key={idx} className="text-xs text-gray-600 bg-white p-2 rounded">
+                                                Q{idx + 1}: {q.question?.substring(0, 100)}...
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             )}
 

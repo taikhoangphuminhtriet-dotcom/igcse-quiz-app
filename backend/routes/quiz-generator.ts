@@ -6,6 +6,7 @@ const { v4: uuidv4 } = require('uuid');
 const { verifyToken, requireDeveloper, requireOwner } = require('../middleware/auth');
 const { PDFReaderService } = require('../services/pdfReader');
 const { AIService } = require('../services/ai');
+const { AIStreamingService } = require('../services/aiStreaming');
 const { CloudinaryService } = require('../services/cloudinary');
 const { adminDb } = require('../../src/lib/firebase-admin');
 
@@ -201,6 +202,135 @@ router.post('/generate-quiz-from-pdfs',
                 success: false,
                 error: error.message || 'Failed to generate quiz from PDFs'
             });
+        }
+    }
+);
+
+// Generate quiz with streaming (SSE)
+router.post('/generate-quiz-streaming',
+    verifyToken,
+    requireDeveloperOrOwner,
+    upload.fields([
+        { name: 'insert', maxCount: 1 },
+        { name: 'questions', maxCount: 1 },
+        { name: 'markscheme', maxCount: 1 }
+    ]),
+    async (req, res) => {
+        try {
+            console.log('🚀 Starting streaming quiz generation...');
+
+            const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+            const { title, subject, examBoard, year, session, paperNumber, customInstructions } = req.body;
+
+            // Validate required files
+            if (!files.insert || !files.questions || !files.markscheme) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'All 3 PDFs are required'
+                });
+            }
+
+            // Validate metadata
+            if (!title || !subject) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Title and subject are required'
+                });
+            }
+
+            // Set up SSE headers
+            res.writeHead(200, {
+                'Content-Type': 'text/event-stream',
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'Access-Control-Allow-Origin': '*'
+            });
+
+            // Send initial connection message
+            res.write(`data: ${JSON.stringify({ type: 'connected', sessionId: uuidv4() })}\n\n`);
+
+            const sessionId = uuidv4();
+            const filePaths = {
+                insert: files.insert[0].path,
+                questions: files.questions[0].path,
+                markscheme: files.markscheme[0].path
+            };
+
+            // Upload PDFs to Cloudinary
+            res.write(`data: ${JSON.stringify({ type: 'status', data: 'Uploading PDFs...' })}\n\n`);
+            const pdfUrls = await CloudinaryService.uploadMultiplePDFs(filePaths);
+
+            // Extract text
+            res.write(`data: ${JSON.stringify({ type: 'status', data: 'Extracting text from PDFs...' })}\n\n`);
+            const extractedTexts = await PDFReaderService.extractTextFromMultiplePDFs(filePaths);
+
+            const metadata = {
+                title,
+                subject,
+                examBoard,
+                year,
+                session,
+                paperNumber,
+                customInstructions
+            };
+
+            // Generate quiz with streaming
+            const generatedQuiz = await AIStreamingService.generateQuizWithStreaming(
+                sessionId,
+                extractedTexts,
+                metadata,
+                (update) => {
+                    // Send updates via SSE
+                    res.write(`data: ${JSON.stringify(update)}\n\n`);
+                }
+            );
+
+            // Save quiz to database
+            const quizId = uuidv4();
+            const quizData = {
+                id: quizId,
+                ...generatedQuiz,
+                createdBy: req.user.uid,
+                createdAt: new Date(),
+                status: 'draft',
+                sourceFiles: {
+                    insert: files.insert[0].filename,
+                    questions: files.questions[0].filename,
+                    markscheme: files.markscheme[0].filename
+                },
+                pdfUrls
+            };
+
+            await adminDb.collection('quizzes').doc(quizId).set(quizData);
+
+            // Send final success message
+            res.write(`data: ${JSON.stringify({
+                type: 'success',
+                data: {
+                    quizId,
+                    questionCount: generatedQuiz.questions.length,
+                    totalMarks: generatedQuiz.metadata.totalMarks
+                }
+            })}\n\n`);
+
+            // Clean up files
+            setTimeout(() => {
+                Object.values(filePaths).forEach(filePath => {
+                    if (fs.existsSync(filePath)) {
+                        fs.unlinkSync(filePath);
+                    }
+                });
+            }, 5000);
+
+            res.end();
+
+        } catch (error) {
+            console.error('❌ Streaming generation error:', error);
+            res.write(`data: ${JSON.stringify({
+                type: 'error',
+                data: error.message
+            })}\n\n`);
+            res.end();
         }
     }
 );
