@@ -11,6 +11,10 @@ interface ActiveTest {
     lastActivity: Date;
 }
 
+interface ActiveTestWithId extends ActiveTest {
+    id: string;
+}
+
 class TestPersistenceService {
     static async startTest(userId: string, quizId: string, timeLimit: number): Promise<string> {
         try {
@@ -68,7 +72,7 @@ class TestPersistenceService {
         }
     }
 
-    static async getActiveTest(userId: string, quizId: string): Promise<ActiveTest | null> {
+    static async getActiveTest(userId: string, quizId: string): Promise<ActiveTestWithId | null> {
         try {
             const snapshot = await adminDb.collection('active_tests')
                 .where('userId', '==', userId)
@@ -90,7 +94,7 @@ class TestPersistenceService {
                 data.lastActivity = data.lastActivity.toDate();
             }
             
-            return { ...data, id: doc.id } as ActiveTest & { id: string };
+            return { ...data, id: doc.id } as ActiveTestWithId;
 
         } catch (error) {
             console.error('❌ Error getting active test:', error);
@@ -291,12 +295,12 @@ class TestPersistenceService {
         }
     }
 
-    static async getTestSession(testSessionId: string): Promise<ActiveTest | null> {
+    static async getTestSession(testSessionId: string): Promise<ActiveTestWithId | null> {
         try {
             const testDoc = await adminDb.collection('active_tests').doc(testSessionId).get();
             if (!testDoc.exists) return null;
 
-            return { ...testDoc.data(), id: testSessionId } as ActiveTest & { id: string };
+            return { ...testDoc.data(), id: testSessionId } as ActiveTestWithId;
 
         } catch (error) {
             console.error('❌ Error getting test session:', error);
@@ -304,7 +308,7 @@ class TestPersistenceService {
         }
     }
 
-    static async getAllActiveTests(): Promise<ActiveTest[]> {
+    static async getAllActiveTests(): Promise<ActiveTestWithId[]> {
         try {
             const snapshot = await adminDb.collection('active_tests')
                 .where('status', '==', 'active')
@@ -313,7 +317,7 @@ class TestPersistenceService {
             return snapshot.docs.map((doc: any) => ({
                 id: doc.id,
                 ...doc.data()
-            }));
+            })) as ActiveTestWithId[];
 
         } catch (error) {
             console.error('❌ Error getting active tests:', error);
